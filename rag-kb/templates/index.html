@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Knowledge Base</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c0e12;--bg2:#13161c;--bg3:#1a1e26;--bg4:#232830;--bd:#2a303a;--bdh:#3a4150;--t:#c8cdd6;--t2:#8891a0;--t3:#5a6373;--ac:#00e5a0;--ac2:#00c48c;--acd:rgba(0,229,160,0.08);--red:#ff5c5c;--blue:#5ca0ff;--orange:#ffaa40;--mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;--r:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--t);min-height:100vh;display:flex;flex-direction:column}
+
+/* Header */
+.hdr{padding:18px 24px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:14px;background:var(--bg2);flex-wrap:wrap}
+.hdr-ico{width:36px;height:36px;background:linear-gradient(135deg,var(--ac),#00b8d4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:var(--bg);font-family:var(--mono);flex-shrink:0}
+.hdr h1{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ac);letter-spacing:.5px}
+.hdr p{font-size:11px;color:var(--t3);margin-top:2px}
+.badge{font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:10px;background:rgba(0,229,160,0.12);color:var(--ac);border:1px solid rgba(0,229,160,0.2);letter-spacing:.5px;text-transform:uppercase}
+.stats{margin-left:auto;display:flex;gap:16px;font-family:var(--mono);font-size:11px;color:var(--t3)}
+.sv{color:var(--ac);font-weight:600}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 20px;overflow-x:auto}
+.tab{padding:11px 18px;font-size:13px;font-weight:500;color:var(--t3);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .2s;display:flex;align-items:center;gap:8px;font-family:var(--sans);white-space:nowrap}
+.tab:hover{color:var(--t2)}.tab.on{color:var(--ac);border-bottom-color:var(--ac)}
+.cnt{flex:1;padding:24px;max-width:960px;margin:0 auto;width:100%}
+.panel{display:none}.panel.active{display:block}
+
+/* Upload zone */
+.uz{border:2px dashed var(--bd);border-radius:var(--r);padding:32px 24px;text-align:center;cursor:pointer;transition:all .25s;background:var(--bg2)}
+.uz:hover,.uz.dg{border-color:var(--ac);background:var(--acd)}
+.uz .ic{font-size:28px;margin-bottom:8px;opacity:.5}
+.uz .lb{font-size:13px;color:var(--t2);margin-bottom:8px}
+.fmts{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
+.fmt{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;border:1px solid var(--bd);color:var(--t3);background:var(--bg3)}
+
+/* Text input */
+.tia{margin-top:14px;display:flex;gap:10px}
+.tia textarea{flex:1;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);color:var(--t);padding:11px 14px;font-family:var(--sans);font-size:13px;resize:vertical;min-height:70px;outline:none;transition:border-color .2s}
+.tia textarea:focus{border-color:var(--ac)}.tia textarea::placeholder{color:var(--t3)}
+
+/* Buttons */
+.btn{padding:10px 16px;background:var(--ac);color:var(--bg);border:none;border-radius:var(--r);font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn:hover{background:var(--ac2);transform:translateY(-1px)}.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.bsm{padding:6px 12px;font-size:11px}
+.bout{background:transparent;border:1px solid var(--bd);color:var(--t2)}.bout:hover{border-color:var(--ac);color:var(--ac);background:var(--acd)}
+.bdng{background:transparent;border:1px solid var(--bd);color:var(--red)}.bdng:hover{border-color:var(--red);background:rgba(255,92,92,.08)}
+
+/* Doc list */
+.dlist{margin-top:14px;display:flex;flex-direction:column;gap:7px}
+.dcard{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:12px;transition:border-color .2s;animation:fi .25s ease-out}
+.dcard:hover{border-color:var(--bdh)}
+.dtype{width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.dtype.im{background:rgba(90,163,255,.12);color:var(--blue)}
+.dtype.tx{background:var(--acd);color:var(--ac)}
+.dtype.pd{background:rgba(255,92,92,.1);color:var(--red)}
+.dtype.wd{background:rgba(90,163,255,.12);color:var(--blue)}
+.dtype.xl{background:rgba(0,229,160,.1);color:var(--ac)}
+.dinfo{flex:1;min-width:0}
+.dname{font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dmeta{font-size:11px;color:var(--t3);font-family:var(--mono);margin-top:2px}
+
+/* Input rows */
+.irow{display:flex;gap:10px;margin-bottom:16px}
+.irow input,.irow select{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);color:var(--t);padding:11px 14px;font-family:var(--sans);font-size:14px;outline:none;transition:border-color .2s}
+.irow input{flex:1}.irow input:focus{border-color:var(--ac)}.irow input::placeholder{color:var(--t3)}
+.irow select{font-family:var(--mono);font-size:12px;padding:8px 10px}
+
+/* Answer card */
+.acard{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin-bottom:12px;animation:fi .25s ease-out}
+.acard h3{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--ac);margin-bottom:10px}
+.atxt{font-size:13px;line-height:1.7;color:var(--t);white-space:pre-wrap}
+
+/* Context chips */
+.clist{display:flex;flex-direction:column;gap:7px}
+.cchip{background:var(--bg3);border:1px solid var(--bd);border-radius:6px;padding:10px 12px}
+.cchip .src{font-family:var(--mono);font-size:10px;color:var(--ac);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.cchip .snip{font-size:12px;color:var(--t2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sbar{display:inline-block;height:3px;background:var(--ac);border-radius:2px}
+
+/* Quiz */
+.qq{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;animation:fi .25s ease-out}
+.qqh{font-family:var(--mono);font-size:11px;color:var(--t3);margin-bottom:6px}
+.qqt{font-size:13px;font-weight:500;color:var(--t);margin-bottom:12px;line-height:1.6;white-space:pre-wrap}
+.qopts{display:flex;flex-direction:column;gap:5px}
+.qopt{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;cursor:pointer;transition:all .2s;font-size:13px;color:var(--t2)}
+.qopt:hover{border-color:var(--bdh);color:var(--t)}
+.qopt.sel{border-color:var(--ac);background:var(--acd);color:var(--t)}
+.qopt.ok{border-color:var(--ac);background:rgba(0,229,160,.12);color:var(--ac)}
+.qopt.no{border-color:var(--red);background:rgba(255,92,92,.08);color:var(--red)}
+.qr{width:15px;height:15px;border-radius:50%;border:2px solid var(--bd);flex-shrink:0}
+.qopt.sel .qr{border-color:var(--ac);background:radial-gradient(var(--ac) 40%,transparent 41%)}
+.rbar{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.rsc{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--ac)}
+.rlb{font-size:13px;color:var(--t2)}
+
+/* Misc */
+.ldr{display:flex;align-items:center;gap:10px;padding:12px;color:var(--t2);font-size:13px}
+.spn{width:16px;height:16px;border:2px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+.emp{text-align:center;padding:44px 20px;color:var(--t3);font-size:13px}
+.emp .ic{font-size:32px;margin-bottom:8px;opacity:.3}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-ico">R</div>
+  <div><h1>RAG Knowledge Base</h1><p>PDF · Word · Excel · OCR · Полностью офлайн</p></div>
+  <span class="badge">python + fastapi</span>
+  <div class="stats">
+    <span>docs: <span class="sv" id="stat-docs">0</span></span>
+    <span>chunks: <span class="sv" id="stat-chunks">0</span></span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab on" data-tab="kb">📚 База знаний</button>
+  <button class="tab" data-tab="ask">❓ Вопрос-Ответ</button>
+  <button class="tab" data-tab="quiz">📋 Контрольные</button>
+  <button class="tab" data-tab="graph">🕸 Граф</button>
+</div>
+
+<div class="cnt">
+
+  <!-- ═══ KB Panel ═══ -->
+  <div class="panel active" id="panel-kb">
+    <div class="uz" id="upload-zone">
+      <div class="ic">📂</div>
+      <div class="lb">Перетащи файлы или нажми для загрузки</div>
+      <div class="fmts">
+        <span class="fmt">PDF</span><span class="fmt">Word</span><span class="fmt">Excel</span>
+        <span class="fmt">CSV</span><span class="fmt">TXT / MD</span><span class="fmt">Картинки (OCR)</span>
+      </div>
+      <input type="file" id="file-input" multiple accept=".txt,.md,.json,.csv,.tsv,.log,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.png,.jpg,.jpeg,.gif,.bmp,.webp,.tiff" style="display:none">
+    </div>
+
+    <div class="tia">
+      <textarea id="text-draft" placeholder="Или вставь текст напрямую..."></textarea>
+      <button class="btn" id="btn-add-text">Добавить</button>
+    </div>
+
+    <div id="upload-status" class="ldr hidden"><div class="spn"></div><span id="upload-msg">Загрузка...</span></div>
+    <div id="doc-list" class="dlist"></div>
+    <div id="empty-kb" class="emp"><div class="ic">📚</div><div>База знаний пуста. Загрузи документы или вставь текст.</div></div>
+  </div>
+
+  <!-- ═══ Ask Panel ═══ -->
+  <div class="panel" id="panel-ask">
+    <div class="irow">
+      <input type="text" id="question-input" placeholder="Задай вопрос по базе знаний...">
+      <button class="btn" id="btn-ask">Найти</button>
+    </div>
+    <div id="ask-loading" class="ldr hidden"><div class="spn"></div>Поиск по векторной базе...</div>
+    <div id="ask-result"></div>
+    <div id="empty-ask" class="emp"><div class="ic">🔍</div><div>Сначала добавь документы в базу знаний</div></div>
+  </div>
+
+  <!-- ═══ Quiz Panel ═══ -->
+  <div class="panel" id="panel-quiz">
+    <div class="irow">
+      <input type="text" id="quiz-topic" placeholder="Тема (пусто = вся база)...">
+      <select id="quiz-count"><option value="3">3</option><option value="5" selected>5</option><option value="7">7</option><option value="10">10</option></select>
+      <button class="btn" id="btn-quiz">Сгенерировать</button>
+    </div>
+    <div id="quiz-loading" class="ldr hidden"><div class="spn"></div>Генерация вопросов...</div>
+    <div id="quiz-container"></div>
+    <div id="quiz-actions" class="hidden" style="margin-top:8px"></div>
+    <div id="empty-quiz" class="emp"><div class="ic">📋</div><div>Сначала добавь документы в базу знаний</div></div>
+  </div>
+
+  <!-- ═══ Graph Panel ═══ -->
+  <div class="panel" id="panel-graph">
+    <div id="graph-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn bsm bout" id="btn-refresh-graph">↺ Обновить</button>
+      <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:8px;font-family:var(--mono)">
+        Порог схожести:
+        <input type="range" id="sim-threshold" min="0.05" max="0.60" step="0.05" value="0.15" style="accent-color:var(--ac);width:120px">
+        <span id="threshold-val" style="color:var(--ac);min-width:32px">0.15</span>
+      </label>
+      <button class="btn bsm bout" id="btn-reset-zoom">⊡ Сброс</button>
+      <div id="graph-stats-bar" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--t3);display:flex;gap:14px"></div>
+    </div>
+    <div style="position:relative">
+      <svg id="graph-svg" style="width:100%;height:520px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r)">
+        <g id="graph-g">
+          <g id="links-layer"></g>
+          <g id="nodes-layer"></g>
+          <g id="labels-layer"></g>
+        </g>
+      </svg>
+      <div id="graph-tooltip" style="position:absolute;display:none;background:var(--bg3);border:1px solid var(--bdh);border-radius:6px;padding:8px 12px;font-size:12px;pointer-events:none;max-width:220px;z-index:10"></div>
+    </div>
+    <div id="graph-detail" style="margin-top:14px;display:none">
+      <div class="acard">
+        <h3 id="detail-title" style="margin-bottom:10px">▸ Документ</h3>
+        <div id="detail-body"></div>
+      </div>
+    </div>
+    <div id="empty-graph" class="emp"><div class="ic">🕸</div><div>Добавьте хотя бы 2 документа чтобы увидеть граф связей</div></div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script>
+// ═══ State ═══
+let docs = [];
+let quizData = null;
+let picks = {};
+let checked = false;
+
+// ═══ Tabs ═══
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('on');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'graph') loadGraph();
+  });
+});
+
+// ═══ Upload ═══
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dg'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dg'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('dg'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+async function handleFiles(files) {
+  const status = document.getElementById('upload-status');
+  const msg = document.getElementById('upload-msg');
+  status.classList.remove('hidden');
+
+  for (const file of files) {
+    msg.textContent = `Обработка: ${file.name}...`;
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const resp = await fetch('/api/upload', { method: 'POST', body: form });
+      const data = await resp.json();
+      if (data.document) docs.push(data.document);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  status.classList.add('hidden');
+  fileInput.value = '';
+  renderDocs();
+  updateStats();
+}
+
+// ═══ Add text ═══
+document.getElementById('btn-add-text').addEventListener('click', async () => {
+  const ta = document.getElementById('text-draft');
+  const text = ta.value.trim();
+  if (!text) return;
+
+  const form = new FormData();
+  form.append('text', text);
+  const resp = await fetch('/api/add-text', { method: 'POST', body: form });
+  const data = await resp.json();
+  if (data.document) docs.push(data.document);
+  ta.value = '';
+  renderDocs();
+  updateStats();
+});
+
+// ═══ Render docs ═══
+const typeIcons = { image: '🖼', pdf: '📕', word: '📘', excel: '📊', csv: '📊', text: '📝' };
+const typeClasses = { image: 'im', pdf: 'pd', word: 'wd', excel: 'xl', csv: 'xl', text: 'tx' };
+
+function renderDocs() {
+  const list = document.getElementById('doc-list');
+  const empty = document.getElementById('empty-kb');
+  empty.style.display = docs.length === 0 ? '' : 'none';
+
+  list.innerHTML = docs.map(doc => `
+    <div class="dcard">
+      <div class="dtype ${typeClasses[doc.type] || 'tx'}">${typeIcons[doc.type] || '📝'}</div>
+      <div class="dinfo">
+        <div class="dname">${esc(doc.name)}</div>
+        <div class="dmeta">${doc.ts} · ${doc.chunk_count} chunks · ${doc.char_count} chars</div>
+      </div>
+      <button class="btn bsm bdng" onclick="removeDoc('${doc.id}')">✕</button>
+    </div>
+  `).join('');
+
+  // Update empty states on other panels
+  const hasData = docs.length > 0;
+  document.getElementById('empty-ask').style.display = hasData ? 'none' : '';
+  document.getElementById('empty-quiz').style.display = hasData ? 'none' : '';
+}
+
+async function removeDoc(id) {
+  await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+  docs = docs.filter(d => d.id !== id);
+  renderDocs();
+  updateStats();
+}
+
+async function updateStats() {
+  try {
+    const resp = await fetch('/api/stats');
+    const data = await resp.json();
+    document.getElementById('stat-docs').textContent = data.documents;
+    document.getElementById('stat-chunks').textContent = data.chunks;
+  } catch (e) {}
+}
+
+// ═══ Ask ═══
+const questionInput = document.getElementById('question-input');
+document.getElementById('btn-ask').addEventListener('click', handleAsk);
+questionInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleAsk(); });
+
+async function handleAsk() {
+  const q = questionInput.value.trim();
+  if (!q || docs.length === 0) return;
+
+  const loading = document.getElementById('ask-loading');
+  const result = document.getElementById('ask-result');
+  loading.classList.remove('hidden');
+  result.innerHTML = '';
+
+  const form = new FormData();
+  form.append('question', q);
+  const resp = await fetch('/api/ask', { method: 'POST', body: form });
+  const data = await resp.json();
+
+  loading.classList.add('hidden');
+
+  let html = `<div class="acard"><h3>▸ Ответ</h3><div class="atxt">${esc(data.answer)}</div></div>`;
+
+  if (data.context && data.context.length > 0) {
+    html += `<div class="acard"><h3>▸ Контекст (${data.context.length})</h3><div class="clist">`;
+    data.context.forEach((c, i) => {
+      const w = Math.round(c.score * 120);
+      html += `<div class="cchip">
+        <div class="src">[${i+1}] ${esc(c.doc_name)} <span class="sbar" style="width:${w}px"></span> <span style="color:var(--t3)">${(c.score*100).toFixed(1)}%</span></div>
+        <div class="snip">${esc(c.text)}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+  result.innerHTML = html;
+}
+
+// ═══ Quiz ═══
+document.getElementById('btn-quiz').addEventListener('click', generateQuiz);
+document.getElementById('quiz-topic').addEventListener('keydown', e => { if (e.key === 'Enter') generateQuiz(); });
+
+async function generateQuiz() {
+  if (docs.length === 0) return;
+  const loading = document.getElementById('quiz-loading');
+  const container = document.getElementById('quiz-container');
+  const actions = document.getElementById('quiz-actions');
+
+  loading.classList.remove('hidden');
+  container.innerHTML = '';
+  actions.classList.add('hidden');
+  quizData = null;
+  picks = {};
+  checked = false;
+
+  const form = new FormData();
+  form.append('topic', document.getElementById('quiz-topic').value);
+  form.append('count', document.getElementById('quiz-count').value);
+
+  const resp = await fetch('/api/quiz', { method: 'POST', body: form });
+  const data = await resp.json();
+
+  loading.classList.add('hidden');
+
+  if (!data.questions || data.questions.length === 0) {
+    container.innerHTML = '<div class="emp"><div class="ic">⚠️</div><div>Недостаточно материала для генерации вопросов. Добавьте больше текста.</div></div>';
+    return;
+  }
+
+  quizData = data.questions;
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const container = document.getElementById('quiz-container');
+  const actions = document.getElementById('quiz-actions');
+
+  let html = '';
+  quizData.forEach((q, qi) => {
+    html += `<div class="qq"><div class="qqh">Вопрос ${qi+1} из ${quizData.length}</div>
+      <div class="qqt">${esc(q.question)}</div><div class="qopts">`;
+    q.options.forEach((opt, oi) => {
+      let cls = 'qopt';
+      if (!checked && picks[qi] === oi) cls += ' sel';
+      if (checked && oi === q.correct) cls += ' ok';
+      if (checked && picks[qi] === oi && oi !== q.correct) cls += ' no';
+      html += `<div class="${cls}" onclick="pickAnswer(${qi},${oi})"><div class="qr"></div>${esc(opt)}</div>`;
+    });
+    html += `</div></div>`;
+  });
+  container.innerHTML = html;
+
+  // Actions
+  if (!checked) {
+    const allPicked = Object.keys(picks).length >= quizData.length;
+    actions.classList.remove('hidden');
+    actions.innerHTML = `<button class="btn" onclick="checkQuiz()" ${allPicked ? '' : 'disabled'}>Проверить</button>`;
+  } else {
+    let correct = 0;
+    quizData.forEach((q, i) => { if (picks[i] === q.correct) correct++; });
+    const label = correct === quizData.length ? 'Отлично!' : correct >= quizData.length * 0.6 ? 'Хороший результат!' : 'Стоит повторить';
+    actions.classList.remove('hidden');
+    actions.innerHTML = `<div class="rbar">
+      <div class="rsc">${correct}/${quizData.length}</div>
+      <div><div class="rlb">${label}</div></div>
+      <button class="btn bout" style="margin-left:auto" onclick="generateQuiz()">Ещё тест</button>
+    </div>`;
+  }
+}
+
+function pickAnswer(qi, oi) {
+  if (checked) return;
+  picks[qi] = oi;
+  renderQuiz();
+}
+
+function checkQuiz() {
+  checked = true;
+  renderQuiz();
+}
+
+// ═══ Graph ═══
+let simulation = null;
+const typeColors = { pdf: '#ff5c5c', word: '#5ca0ff', excel: '#00e5a0', csv: '#00e5a0', image: '#ffaa40', text: '#8891a0' };
+
+async function loadGraph() {
+  const threshold = document.getElementById('sim-threshold').value;
+  const resp = await fetch(`/api/graph?threshold=${threshold}`);
+  const data = await resp.json();
+
+  const empty = document.getElementById('empty-graph');
+  const statsBar = document.getElementById('graph-stats-bar');
+
+  if (data.nodes.length < 2) {
+    empty.style.display = '';
+    statsBar.innerHTML = '';
+    clearGraph();
+    return;
+  }
+  empty.style.display = 'none';
+
+  statsBar.innerHTML = `
+    <span>узлов: <span style="color:var(--ac)">${data.stats.node_count}</span></span>
+    <span>связей: <span style="color:var(--ac)">${data.stats.edge_count}</span></span>
+    <span>плотность: <span style="color:var(--ac)">${data.stats.density}</span></span>
+    <span>компонент: <span style="color:var(--ac)">${data.stats.components}</span></span>
+  `;
+
+  renderGraph(data.nodes, data.links);
+}
+
+function clearGraph() {
+  if (simulation) { simulation.stop(); simulation = null; }
+  d3.select('#links-layer').selectAll('*').remove();
+  d3.select('#nodes-layer').selectAll('*').remove();
+  d3.select('#labels-layer').selectAll('*').remove();
+}
+
+function renderGraph(nodes, links) {
+  clearGraph();
+  document.getElementById('graph-detail').style.display = 'none';
+
+  const svg = d3.select('#graph-svg');
+  const g = d3.select('#graph-g');
+  const svgEl = document.getElementById('graph-svg');
+  const W = svgEl.clientWidth || 800;
+  const H = svgEl.clientHeight || 520;
+
+  // Zoom
+  const zoom = d3.zoom().scaleExtent([0.2, 4]).on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoom);
+  document.getElementById('btn-reset-zoom').onclick = () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+
+  // Links
+  const link = d3.select('#links-layer').selectAll('line').data(links).join('line')
+    .attr('stroke', '#3a4150')
+    .attr('stroke-width', d => Math.max(1, d.weight * 5))
+    .attr('stroke-opacity', d => 0.3 + d.weight * 0.5);
+
+  // Nodes
+  const maxDegree = Math.max(1, d3.max(nodes, d => d.degree));
+  const node = d3.select('#nodes-layer').selectAll('circle').data(nodes).join('circle')
+    .attr('r', d => 10 + (d.centrality * 18))
+    .attr('fill', d => typeColors[d.type] || '#8891a0')
+    .attr('fill-opacity', 0.85)
+    .attr('stroke', '#0c0e12')
+    .attr('stroke-width', 2)
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+    )
+    .on('mouseover', (e, d) => showTooltip(e, d))
+    .on('mousemove', e => moveTooltip(e))
+    .on('mouseout', () => hideTooltip())
+    .on('click', (e, d) => { e.stopPropagation(); showDetail(d); highlightNode(d, node, link); });
+
+  // Labels
+  const label = d3.select('#labels-layer').selectAll('text').data(nodes).join('text')
+    .text(d => d.name.length > 18 ? d.name.slice(0, 16) + '…' : d.name)
+    .attr('font-size', 10)
+    .attr('fill', '#8891a0')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => 14 + (d.centrality * 18))
+    .style('pointer-events', 'none');
+
+  // Force simulation
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(d => 120 * (1 - d.weight) + 60))
+    .force('charge', d3.forceManyBody().strength(-220))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collide', d3.forceCollide().radius(d => 20 + d.centrality * 18))
+    .on('tick', () => {
+      link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      node.attr('cx', d => d.x).attr('cy', d => d.y);
+      label.attr('x', d => d.x).attr('y', d => d.y);
+    });
+}
+
+function highlightNode(d, node, link) {
+  node.attr('stroke', n => n.id === d.id ? '#ffffff' : '#0c0e12').attr('stroke-width', n => n.id === d.id ? 3 : 2);
+  link.attr('stroke', l => (l.source.id === d.id || l.target.id === d.id) ? '#00e5a0' : '#3a4150')
+      .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.2);
+}
+
+function showTooltip(e, d) {
+  const t = document.getElementById('graph-tooltip');
+  t.innerHTML = `<strong style="color:var(--t)">${esc(d.name)}</strong><br>
+    <span style="color:var(--t3)">тип: </span><span style="color:var(--ac)">${d.type}</span><br>
+    <span style="color:var(--t3)">чанков: </span>${d.chunk_count} · ${d.char_count} симв.<br>
+    <span style="color:var(--t3)">связей: </span>${d.degree}`;
+  t.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const t = document.getElementById('graph-tooltip');
+  const rect = document.getElementById('graph-svg').getBoundingClientRect();
+  t.style.left = (e.clientX - rect.left + 12) + 'px';
+  t.style.top = (e.clientY - rect.top - 10) + 'px';
+}
+function hideTooltip() { document.getElementById('graph-tooltip').style.display = 'none'; }
+
+async function showDetail(d) {
+  const detail = document.getElementById('graph-detail');
+  const title = document.getElementById('detail-title');
+  const body = document.getElementById('detail-body');
+  detail.style.display = 'block';
+  title.textContent = `▸ ${d.name}`;
+  body.innerHTML = '<div class="ldr"><div class="spn"></div>Загрузка...</div>';
+
+  const resp = await fetch(`/api/graph/neighbors/${d.id}`);
+  const data = await resp.json();
+
+  let html = `<div style="font-family:var(--mono);font-size:11px;color:var(--t3);margin-bottom:10px">
+    тип: <span style="color:var(--ac)">${d.type}</span> · чанков: ${d.chunk_count} · добавлен: ${d.ts}</div>`;
+
+  if (data.top_keywords.length > 0) {
+    html += `<div style="margin-bottom:10px"><span style="font-size:11px;color:var(--t3);font-family:var(--mono)">КЛЮЧЕВЫЕ СЛОВА: </span>`;
+    html += data.top_keywords.map(k => `<span style="display:inline-block;background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:2px 7px;font-family:var(--mono);font-size:10px;color:var(--ac);margin:2px">${esc(k)}</span>`).join('');
+    html += '</div>';
+  }
+
+  if (data.neighbors.length > 0) {
+    html += `<div style="font-size:11px;color:var(--t3);font-family:var(--mono);margin-bottom:6px">ПОХОЖИЕ ДОКУМЕНТЫ:</div>`;
+    data.neighbors.forEach(n => {
+      const pct = Math.round(n.similarity * 100);
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;margin-bottom:5px;font-size:12px">
+        <span style="flex:1;color:var(--t)">${esc(n.name)}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ac)">${pct}%</span>
+        <div style="width:60px;height:3px;background:var(--bd);border-radius:2px"><div style="width:${pct}%;height:100%;background:var(--ac);border-radius:2px"></div></div>
+      </div>`;
+    });
+  } else {
+    html += `<div style="font-size:12px;color:var(--t3)">Нет похожих документов (порог схожести не достигнут)</div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+document.getElementById('btn-refresh-graph').addEventListener('click', loadGraph);
+document.getElementById('sim-threshold').addEventListener('input', function() {
+  document.getElementById('threshold-val').textContent = parseFloat(this.value).toFixed(2);
+});
+document.getElementById('sim-threshold').addEventListener('change', loadGraph);
+
+// ═══ Utils ═══
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ═══ Init ═══
+(async () => {
+  const resp = await fetch('/api/documents');
+  docs = await resp.json();
+  renderDocs();
+  updateStats();
+})();
+</script>
+</body>
+</html>
