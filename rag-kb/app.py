@@ -343,27 +343,74 @@ async def get_documents():
 @app.get("/api/graph")
 async def api_graph(threshold: float = 0.65):
     data = collection.get(include=["embeddings", "metadatas"])
-    if not data or not data["embeddings"]: return {"nodes": [], "links": []}
+    if not data or not data["embeddings"]: return {"nodes": [], "links": [], "stats": {}}
 
-    doc_embs = {}
-    for i, m in enumerate(data["metadatas"]):
-        name = m.get("doc_name", "Unknown")
-        if name not in doc_embs: doc_embs[name] = []
-        doc_embs[name].append(data["embeddings"][i])
+    # Узел = один чанк (страница документа)
+    # Цвет узла определяется по документу
+    doc_names = list(set(m.get("doc_name", "?") for m in data["metadatas"]))
+    doc_colors = ["pdf", "word", "excel", "csv", "text", "image"]
+    doc_color_map = {name: doc_colors[i % len(doc_colors)] for i, name in enumerate(doc_names)}
 
-    names = list(doc_embs.keys())
-    avg_embs = [np.mean(doc_embs[n], axis=0) for n in names]
-    nodes = [{"id": n, "name": n, "type": "doc"} for n in names]
+    nodes = []
+    for i, (mid, m) in enumerate(zip(data["ids"], data["metadatas"])):
+        doc = m.get("doc_name", "?")
+        page = m.get("page_num", i)
+        nodes.append({
+            "id": mid,
+            "name": f"стр.{page}",
+            "doc_name": doc,
+            "type": doc_color_map.get(doc, "text"),
+            "page_num": page,
+            "centrality": 0,
+            "degree": 0,
+            "chunk_count": 1,
+            "char_count": len(m.get("content", ""))
+        })
+
+    # Считаем сходство между чанками — только междокументные связи
+    embs = np.array(data["embeddings"])
+    sims = cosine_similarity(embs)
+
     links = []
+    node_degree = {n["id"]: 0 for n in nodes}
 
-    if len(names) > 1:
-        sims = cosine_similarity(avg_embs)
-        for i in range(len(names)):
-            for j in range(i + 1, len(names)):
-                if sims[i, j] >= threshold:
-                    links.append({"source": names[i], "target": names[j], "weight": float(sims[i, j])})
+    for i in range(len(nodes)):
+        for j in range(i + 1, len(nodes)):
+            # Только связи между разными документами
+            if nodes[i]["doc_name"] == nodes[j]["doc_name"]:
+                continue
+            sim = float(sims[i, j])
+            if sim >= threshold:
+                links.append({
+                    "source": nodes[i]["id"],
+                    "target": nodes[j]["id"],
+                    "weight": sim
+                })
+                node_degree[nodes[i]["id"]] += 1
+                node_degree[nodes[j]["id"]] += 1
 
-    return {"nodes": nodes, "links": links}
+    max_degree = max(node_degree.values()) if node_degree else 1
+    for n in nodes:
+        n["degree"] = node_degree[n["id"]]
+        n["centrality"] = n["degree"] / max(1, max_degree)
+
+    # Убираем изолированные узлы без связей для чистоты графа
+    connected_ids = set()
+    for l in links:
+        connected_ids.add(l["source"])
+        connected_ids.add(l["target"])
+    nodes = [n for n in nodes if n["id"] in connected_ids]
+
+    return {
+        "nodes": nodes,
+        "links": links,
+        "stats": {
+            "node_count": len(nodes),
+            "edge_count": len(links),
+            "density": round(len(links) / max(1, len(nodes) * (len(nodes) - 1) / 2), 3),
+            "components": 1
+        }
+    }
 
 @app.get("/api/stats")
 async def get_stats():

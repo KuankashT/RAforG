@@ -464,7 +464,7 @@ async function loadGraph() {
   const empty = document.getElementById('empty-graph');
   const statsBar = document.getElementById('graph-stats-bar');
 
-  if (data.nodes.length < 2) {
+  if (data.nodes.length < 1) {
     empty.style.display = '';
     statsBar.innerHTML = '';
     clearGraph();
@@ -472,11 +472,11 @@ async function loadGraph() {
   }
   empty.style.display = 'none';
 
+  const st = data.stats || {};
   statsBar.innerHTML = `
-    <span>узлов: <span style="color:var(--ac)">${data.stats.node_count}</span></span>
-    <span>связей: <span style="color:var(--ac)">${data.stats.edge_count}</span></span>
-    <span>плотность: <span style="color:var(--ac)">${data.stats.density}</span></span>
-    <span>компонент: <span style="color:var(--ac)">${data.stats.components}</span></span>
+    <span>узлов: <span style="color:var(--ac)">${st.node_count ?? data.nodes.length}</span></span>
+    <span>связей: <span style="color:var(--ac)">${st.edge_count ?? data.links.length}</span></span>
+    ${st.density != null ? `<span>плотность: <span style="color:var(--ac)">${st.density}</span></span>` : ''}
   `;
 
   renderGraph(data.nodes, data.links);
@@ -506,9 +506,10 @@ function renderGraph(nodes, links) {
 
   // Links
   const link = d3.select('#links-layer').selectAll('line').data(links).join('line')
-    .attr('stroke', '#3a4150')
-    .attr('stroke-width', d => Math.max(1, d.weight * 5))
-    .attr('stroke-opacity', d => 0.3 + d.weight * 0.5);
+    .attr('stroke', d => d.weak ? '#2a3140' : '#3a4150')
+    .attr('stroke-width', d => d.weak ? 1 : Math.max(1, d.weight * 5))
+    .attr('stroke-opacity', d => d.weak ? 0.25 : 0.3 + d.weight * 0.5)
+    .attr('stroke-dasharray', d => d.weak ? '4 4' : null);
 
   // Nodes
   const maxDegree = Math.max(1, d3.max(nodes, d => d.degree));
@@ -560,9 +561,9 @@ function highlightNode(d, node, link) {
 
 function showTooltip(e, d) {
   const t = document.getElementById('graph-tooltip');
-  t.innerHTML = `<strong style="color:var(--t)">${esc(d.name)}</strong><br>
-    <span style="color:var(--t3)">тип: </span><span style="color:var(--ac)">${d.type}</span><br>
-    <span style="color:var(--t3)">чанков: </span>${d.chunk_count} · ${d.char_count} симв.<br>
+  t.innerHTML = `<strong style="color:var(--ac)">${esc(d.name)}</strong><br>
+    <span style="color:var(--t3)">${esc(d.doc_name || d.type)}</span><br>
+    <span style="color:var(--t3)">символов: </span>${d.char_count}<br>
     <span style="color:var(--t3)">связей: </span>${d.degree}`;
   t.style.display = 'block';
   moveTooltip(e);
