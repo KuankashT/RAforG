@@ -179,7 +179,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t);min-height:100v
       <button class="btn bsm bout" id="btn-refresh-graph">↺ Обновить</button>
       <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:8px;font-family:var(--mono)">
         Порог схожести:
-        <input type="range" id="sim-threshold" min="0.05" max="0.60" step="0.05" value="0.15" style="accent-color:var(--ac);width:120px">
+        <input type="range" id="sim-threshold" min="0.40" max="0.95" step="0.05" value="0.65" style="accent-color:var(--ac);width:120px">
+        
         <span id="threshold-val" style="color:var(--ac);min-width:32px">0.15</span>
       </label>
       <button class="btn bsm bout" id="btn-reset-zoom">⊡ Сброс</button>
@@ -323,13 +324,18 @@ questionInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleAs
 
 async function handleAsk() {
   const q = questionInput.value.trim();
-  if (!q || docs.length === 0) return;
+  if (!q) return;
+  if (docs.length === 0) {
+    document.getElementById('ask-result').innerHTML = '<div class="acard"><div class="atxt">Сначала загрузите документ в базу знаний.</div></div>';
+    return;
+  }
 
   const loading = document.getElementById('ask-loading');
   const result = document.getElementById('ask-result');
   loading.classList.remove('hidden');
   result.innerHTML = '';
 
+  try {
   const form = new FormData();
   form.append('question', q);
   const resp = await fetch('/api/ask', { method: 'POST', body: form });
@@ -337,7 +343,13 @@ async function handleAsk() {
 
   loading.classList.add('hidden');
 
-  let html = `<div class="acard"><h3>▸ Ответ</h3><div class="atxt">${esc(data.answer)}</div></div>`;
+  let imgsHtml = '';
+  if (data.images && data.images.length > 0) {
+    imgsHtml = data.images.map(url =>
+      `<img src="${url}" style="max-width:100%;border-radius:8px;margin-top:10px;display:block;">`
+    ).join('');
+  }
+  let html = `<div class="acard"><h3>▸ Ответ</h3><div class="atxt">${esc(data.answer)}</div>${imgsHtml}</div>`;
 
   if (data.context && data.context.length > 0) {
     html += `<div class="acard"><h3>▸ Контекст (${data.context.length})</h3><div class="clist">`;
@@ -351,6 +363,10 @@ async function handleAsk() {
     html += `</div></div>`;
   }
   result.innerHTML = html;
+  } catch (e) {
+    loading.classList.add('hidden');
+    document.getElementById('ask-result').innerHTML = `<div class="acard"><div class="atxt">Ошибка: ${e.message}</div></div>`;
+  }
 }
 
 // ═══ Quiz ═══
